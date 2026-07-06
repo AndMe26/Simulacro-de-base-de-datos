@@ -1,0 +1,204 @@
+/* =========================
+   SQL Conceptos 
+========================= */
+
+DROP DATABASE IF EXISTS test_simulacro;
+CREATE DATABASE test_simulacro;
+USE test_simulacro;
+
+/* =========================
+   TABLAS
+========================= */
+
+CREATE TABLE ciudades(
+id INT PRIMARY KEY AUTO_INCREMENT,
+nombre VARCHAR(50) NOT NULL,
+departamento VARCHAR(50)
+);
+
+CREATE TABLE categorias(
+id INT PRIMARY KEY AUTO_INCREMENT,
+nombre VARCHAR(50) NOT NULL UNIQUE,
+descripcion TEXT
+);
+
+CREATE TABLE proveedores(
+id INT PRIMARY KEY AUTO_INCREMENT,
+nombre VARCHAR(50) NOT NULL,
+nit VARCHAR(20) UNIQUE NOT NULL,
+telefono VARCHAR(20),
+email VARCHAR(50),
+ciudad_id INT,
+FOREIGN KEY (ciudad_id) REFERENCES ciudades(id)
+);
+
+CREATE TABLE bodegas(
+id INT PRIMARY KEY AUTO_INCREMENT,
+nombre VARCHAR(50) NOT NULL,
+direccion VARCHAR(150),
+responsable VARCHAR(40) NOT NULL,
+ciudad_id INT NOT NULL,
+FOREIGN KEY (ciudad_id) REFERENCES ciudades(id)
+);
+
+CREATE TABLE productos(
+id INT PRIMARY KEY AUTO_INCREMENT,
+nombre VARCHAR(60) NOT NULL,
+descripcion TEXT,
+precio_unitario NUMERIC(12,2) NOT NULL CHECK (precio_unitario > 0),
+unidad_medida VARCHAR(50) NOT NULL,
+stock INT DEFAULT 0,
+categorias_id INT NOT NULL,
+FOREIGN KEY (categorias_id) REFERENCES categorias(id)
+);
+
+CREATE TABLE compras(
+id INT PRIMARY KEY AUTO_INCREMENT,
+fecha DATE NOT NULL,
+proveedor_id INT,
+valor_total NUMERIC(12,2),
+FOREIGN KEY (proveedor_id) REFERENCES proveedores(id)
+);
+
+CREATE TABLE detalle_compra(
+id INT PRIMARY KEY AUTO_INCREMENT,
+cantidad INT NOT NULL,
+precio_unitario NUMERIC(12,2) NOT NULL CHECK (precio_unitario > 0),
+compra_id INT,
+producto_id INT,
+FOREIGN KEY (compra_id) REFERENCES compras(id),
+FOREIGN KEY (producto_id) REFERENCES productos(id)
+);
+
+CREATE TABLE movimiento_inv(
+id INT PRIMARY KEY AUTO_INCREMENT,
+fecha_movimiento DATE NOT NULL,
+tipo_movimiento VARCHAR(20) NOT NULL,
+cantidad INT NOT NULL,
+producto_id INT,
+bodega_id INT,
+FOREIGN KEY (producto_id) REFERENCES productos(id),
+FOREIGN KEY (bodega_id) REFERENCES bodegas(id)
+);
+
+/* =========================
+   CONSULTAS CLAVE 
+========================= */
+
+--  Productos con categoría
+SELECT p.nombre AS producto, c.nombre AS categoria, p.stock
+FROM productos p
+JOIN categorias c ON p.categorias_id = c.id;
+
+--  Stock ordenado
+SELECT nombre, stock
+FROM productos
+ORDER BY stock ASC;
+
+-- Compras por proveedor
+SELECT pr.nombre, SUM(c.valor_total) AS total_compras
+FROM proveedores pr
+JOIN compras c ON pr.id = c.proveedor_id
+GROUP BY pr.nombre;
+
+-- Producto más comprado
+SELECT p.nombre, SUM(dc.cantidad) AS total
+FROM detalle_compra dc
+JOIN productos p ON dc.producto_id = p.id
+GROUP BY p.nombre
+ORDER BY total DESC
+LIMIT 1;
+
+-- Movimientos por bodega
+SELECT b.nombre, m.tipo_movimiento, COUNT(*) AS total
+FROM movimiento_inv m
+JOIN bodegas b ON m.bodega_id = b.id
+GROUP BY b.nombre, m.tipo_movimiento;
+
+-- Categorías con precio promedio alto
+SELECT c.nombre, AVG(p.precio_unitario) AS promedio
+FROM productos p
+JOIN categorias c ON p.categorias_id = c.id
+GROUP BY c.nombre
+HAVING AVG(p.precio_unitario) > 10000;
+
+-- Productos con bajo stock
+SELECT nombre, stock
+FROM productos
+WHERE stock < 10;
+
+--  Proveedores sin compras
+SELECT pr.nombre
+FROM proveedores pr
+LEFT JOIN compras c ON pr.id = c.proveedor_id
+WHERE c.id IS NULL;
+
+/* =========================
+   VISTAS 
+========================= */
+
+CREATE VIEW vw_stock AS
+SELECT p.nombre, c.nombre AS categoria, p.stock
+FROM productos p
+JOIN categorias c ON p.categorias_id = c.id;
+
+CREATE VIEW vw_compras_proveedor AS
+SELECT pr.nombre, SUM(c.valor_total) AS total
+FROM proveedores pr
+LEFT JOIN compras c ON pr.id = c.proveedor_id
+GROUP BY pr.nombre;
+
+/* =========================
+   UPDATE / DELETE 
+========================= */
+
+-- Actualizar proveedor
+UPDATE proveedores
+SET email = 'nuevo@mail.com'
+WHERE id = 1;
+
+-- Reducir stock
+UPDATE productos
+SET stock = stock - 5
+WHERE id = 1 AND stock >= 5;
+
+-- Eliminar movimientos antiguos
+DELETE FROM movimiento_inv
+WHERE tipo_movimiento = 'Salida'
+AND fecha_movimiento < '2024-01-01';
+
+/* =========================
+   TRANSACCIONES
+========================= */
+
+START TRANSACTION;
+
+SAVEPOINT sp1;
+
+INSERT INTO proveedores(nombre, nit, telefono, email, ciudad_id)
+VALUES ('Proveedor Test', '999999', '3000000000', 'test@mail.com', 1);
+
+SAVEPOINT sp2;
+
+INSERT INTO productos(nombre, descripcion, precio_unitario, unidad_medida, stock, categorias_id)
+VALUES ('Producto Test', 'demo', 10000, 'Unidad', 0, 1);
+
+-- COMMIT;  -- guardar todo
+-- ROLLBACK TO sp2; -- deshacer solo producto
+-- ROLLBACK; -- deshacer todo
+
+COMMIT;
+
+--
+
+/* =========================
+   Conceptos
+=========================
+
+JOIN -> unir tablas
+WHERE -> filtrar filas
+GROUP BY -> agrupar
+HAVING -> filtrar grupos
+PK -> identificador único
+FK -> relación entre tablas
+*/
