@@ -1,204 +1,335 @@
-/* =========================
-   SQL Conceptos 
-========================= */
+CREATE DATABASE IF NOT EXISTS bd_nombre_apellido_clan
+  CHARACTER SET utf8mb4
+  COLLATE utf8mb4_unicode_ci;
 
-DROP DATABASE IF EXISTS test_simulacro;
-CREATE DATABASE test_simulacro;
-USE test_simulacro;
+USE bd_nombre_apellido_clan;
 
-/* =========================
-   TABLAS
-========================= */
 
-CREATE TABLE ciudades(
-id INT PRIMARY KEY AUTO_INCREMENT,
-nombre VARCHAR(50) NOT NULL,
-departamento VARCHAR(50)
+CREATE TABLE cities (
+    id    INT          NOT NULL AUTO_INCREMENT,
+    name  VARCHAR(100) NOT NULL,
+    PRIMARY KEY (id),
+    CONSTRAINT uq_cities_name UNIQUE (name)
 );
 
-CREATE TABLE categorias(
-id INT PRIMARY KEY AUTO_INCREMENT,
-nombre VARCHAR(50) NOT NULL UNIQUE,
-descripcion TEXT
+CREATE TABLE equipment_categories (
+    id    INT          NOT NULL AUTO_INCREMENT,
+    name  VARCHAR(100) NOT NULL,
+    PRIMARY KEY (id),
+    CONSTRAINT uq_equipment_categories_name UNIQUE (name)
 );
 
-CREATE TABLE proveedores(
-id INT PRIMARY KEY AUTO_INCREMENT,
-nombre VARCHAR(50) NOT NULL,
-nit VARCHAR(20) UNIQUE NOT NULL,
-telefono VARCHAR(20),
-email VARCHAR(50),
-ciudad_id INT,
-FOREIGN KEY (ciudad_id) REFERENCES ciudades(id)
+CREATE TABLE service_types (
+    id    INT          NOT NULL AUTO_INCREMENT,
+    name  VARCHAR(100) NOT NULL,
+    PRIMARY KEY (id),
+    CONSTRAINT uq_service_types_name UNIQUE (name)
 );
 
-CREATE TABLE bodegas(
-id INT PRIMARY KEY AUTO_INCREMENT,
-nombre VARCHAR(50) NOT NULL,
-direccion VARCHAR(150),
-responsable VARCHAR(40) NOT NULL,
-ciudad_id INT NOT NULL,
-FOREIGN KEY (ciudad_id) REFERENCES ciudades(id)
+CREATE TABLE clients (
+    id    INT          NOT NULL AUTO_INCREMENT,
+    name  VARCHAR(150) NOT NULL,
+    PRIMARY KEY (id),
+    CONSTRAINT uq_clients_name UNIQUE (name)
 );
 
-CREATE TABLE productos(
-id INT PRIMARY KEY AUTO_INCREMENT,
-nombre VARCHAR(60) NOT NULL,
-descripcion TEXT,
-precio_unitario NUMERIC(12,2) NOT NULL CHECK (precio_unitario > 0),
-unidad_medida VARCHAR(50) NOT NULL,
-stock INT DEFAULT 0,
-categorias_id INT NOT NULL,
-FOREIGN KEY (categorias_id) REFERENCES categorias(id)
+CREATE TABLE technicians (
+    id        INT          NOT NULL AUTO_INCREMENT,
+    full_name VARCHAR(150) NOT NULL,
+    PRIMARY KEY (id),
+    CONSTRAINT uq_technicians_name UNIQUE (full_name)
 );
 
-CREATE TABLE compras(
-id INT PRIMARY KEY AUTO_INCREMENT,
-fecha DATE NOT NULL,
-proveedor_id INT,
-valor_total NUMERIC(12,2),
-FOREIGN KEY (proveedor_id) REFERENCES proveedores(id)
+CREATE TABLE equipment (
+    id          INT          NOT NULL AUTO_INCREMENT,
+    name        VARCHAR(150) NOT NULL,
+    category_id INT          NOT NULL,
+    PRIMARY KEY (id),
+    CONSTRAINT uq_equipment_name UNIQUE (name),
+    CONSTRAINT fk_equipment_category
+        FOREIGN KEY (category_id)
+        REFERENCES equipment_categories (id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT
 );
 
-CREATE TABLE detalle_compra(
-id INT PRIMARY KEY AUTO_INCREMENT,
-cantidad INT NOT NULL,
-precio_unitario NUMERIC(12,2) NOT NULL CHECK (precio_unitario > 0),
-compra_id INT,
-producto_id INT,
-FOREIGN KEY (compra_id) REFERENCES compras(id),
-FOREIGN KEY (producto_id) REFERENCES productos(id)
+CREATE TABLE branches (
+    id        INT          NOT NULL AUTO_INCREMENT,
+    name      VARCHAR(150) NOT NULL,
+    city_id   INT          NOT NULL,
+    client_id INT          NOT NULL,
+    PRIMARY KEY (id),
+    CONSTRAINT fk_branches_city
+        FOREIGN KEY (city_id)
+        REFERENCES cities (id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+    CONSTRAINT fk_branches_client
+        FOREIGN KEY (client_id)
+        REFERENCES clients (id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT
 );
 
-CREATE TABLE movimiento_inv(
-id INT PRIMARY KEY AUTO_INCREMENT,
-fecha_movimiento DATE NOT NULL,
-tipo_movimiento VARCHAR(20) NOT NULL,
-cantidad INT NOT NULL,
-producto_id INT,
-bodega_id INT,
-FOREIGN KEY (producto_id) REFERENCES productos(id),
-FOREIGN KEY (bodega_id) REFERENCES bodegas(id)
+CREATE TABLE work_orders (
+    id              INT           NOT NULL AUTO_INCREMENT,
+    order_code      VARCHAR(20)   NOT NULL,
+    service_date    DATE          NOT NULL,
+    hours_worked    DECIMAL(5,2)  NOT NULL,
+    cost            DECIMAL(10,2) NOT NULL,
+    client_id       INT           NOT NULL,
+    branch_id       INT           NOT NULL,
+    technician_id   INT           NOT NULL,
+    equipment_id    INT           NOT NULL,
+    service_type_id INT           NOT NULL,
+    PRIMARY KEY (id),
+    CONSTRAINT uq_work_orders_code UNIQUE (order_code),
+    CONSTRAINT fk_wo_client
+        FOREIGN KEY (client_id)
+        REFERENCES clients (id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+    CONSTRAINT fk_wo_branch
+        FOREIGN KEY (branch_id)
+        REFERENCES branches (id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+    CONSTRAINT fk_wo_technician
+        FOREIGN KEY (technician_id)
+        REFERENCES technicians (id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+    CONSTRAINT fk_wo_equipment
+        FOREIGN KEY (equipment_id)
+        REFERENCES equipment (id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT,
+    CONSTRAINT fk_wo_service_type
+        FOREIGN KEY (service_type_id)
+        REFERENCES service_types (id)
+        ON UPDATE CASCADE
+        ON DELETE RESTRICT
 );
 
-/* =========================
-   CONSULTAS CLAVE 
-========================= */
 
---  Productos con categoría
-SELECT p.nombre AS producto, c.nombre AS categoria, p.stock
-FROM productos p
-JOIN categorias c ON p.categorias_id = c.id;
+INSERT INTO cities (name) VALUES
+    ('Bogotá'),
+    ('Medellín'),
+    ('Cali'),
+    ('Barranquilla'),
+    ('Cartagena'),
+    ('Pereira'),
+    ('Bucaramanga'),
+    ('Cúcuta'),
+    ('Manizales'),
+    ('Santa Marta');
 
---  Stock ordenado
-SELECT nombre, stock
-FROM productos
-ORDER BY stock ASC;
+INSERT INTO equipment_categories (name) VALUES
+    ('Laptop'),
+    ('Desktop'),
+    ('Networking'),
+    ('Printer');
 
--- Compras por proveedor
-SELECT pr.nombre, SUM(c.valor_total) AS total_compras
-FROM proveedores pr
-JOIN compras c ON pr.id = c.proveedor_id
-GROUP BY pr.nombre;
+INSERT INTO service_types (name) VALUES
+    ('Preventive'),
+    ('Corrective'),
+    ('Installation');
 
--- Producto más comprado
-SELECT p.nombre, SUM(dc.cantidad) AS total
-FROM detalle_compra dc
-JOIN productos p ON dc.producto_id = p.id
-GROUP BY p.nombre
-ORDER BY total DESC
+INSERT INTO clients (name) VALUES
+    ('Acme Ltd'),
+    ('Innova SAS'),
+    ('NovaTech'),
+    ('BioHealth'),
+    ('SoftCorp'),
+    ('Vision SA'),
+    ('RetailOne'),
+    ('EduCenter'),
+    ('HealthPlus'),
+    ('MegaFoods');
+
+INSERT INTO technicians (full_name) VALUES
+    ('Juan Perez'),
+    ('Maria Gomez'),
+    ('Carlos Ruiz'),
+    ('Laura Diaz'),
+    ('Andres Mora');
+
+INSERT INTO equipment (name, category_id) VALUES
+    ('Dell Latitude 5420',  1),
+    ('HP ProDesk',          2),
+    ('Cisco Switch 2960',   3),
+    ('Canon Pixma Printer', 4),
+    ('Lenovo ThinkPad',     1);
+
+INSERT INTO branches (name, city_id, client_id) VALUES
+    ('North Office', 1,  1),
+    ('HQ',           2,  2),
+    ('West',         3,  3),
+    ('Main',         4,  4),
+    ('Coast',        5,  5),
+    ('Coffee',       6,  6),
+    ('East',         7,  7),
+    ('NorthEast',    8,  8),
+    ('Central',      9,  9),
+    ('Caribbean',   10, 10);
+
+INSERT INTO work_orders
+    (order_code, service_date, hours_worked, cost,
+     client_id, branch_id, technician_id, equipment_id, service_type_id)
+VALUES
+    ('WO1001', '2026-05-01', 2, 120.00,  1,  1, 1, 1, 1),
+    ('WO1003', '2026-05-03', 4, 250.00,  2,  2, 2, 2, 2),
+    ('WO1005', '2026-05-05', 5, 500.00,  3,  3, 3, 3, 3),
+    ('WO1007', '2026-05-07', 2, 130.00,  4,  4, 4, 4, 2),
+    ('WO1009', '2026-05-09', 2, 140.00,  5,  5, 5, 5, 1),
+    ('WO1011', '2026-05-11', 6, 550.00,  6,  6, 1, 2, 3),
+    ('WO1013', '2026-05-13', 2, 160.00,  7,  7, 2, 1, 2),
+    ('WO1015', '2026-05-15', 2, 125.00,  8,  8, 3, 3, 1),
+    ('WO1017', '2026-05-17', 4, 400.00,  9,  9, 4, 4, 3),
+    ('WO1019', '2026-05-19', 3, 220.00, 10, 10, 5, 5, 2);
+
+
+INSERT INTO clients (name) VALUES ('GlobalServ SAS');
+
+INSERT INTO work_orders
+    (order_code, service_date, hours_worked, cost,
+     client_id, branch_id, technician_id, equipment_id, service_type_id)
+VALUES (
+    'WO1021',
+    '2026-06-01',
+    3,
+    275.00,
+    (SELECT id FROM clients      WHERE name      = 'GlobalServ SAS'),
+    1,
+    (SELECT id FROM technicians  WHERE full_name = 'Juan Perez'),
+    (SELECT id FROM equipment    WHERE name      = 'Dell Latitude 5420'),
+    (SELECT id FROM service_types WHERE name     = 'Preventive')
+);
+
+UPDATE technicians
+SET    full_name = 'Andres Mora Vargas'
+WHERE  full_name = 'Andres Mora';
+
+DELETE FROM equipment
+WHERE id NOT IN (
+    SELECT DISTINCT equipment_id FROM work_orders
+)
 LIMIT 1;
 
--- Movimientos por bodega
-SELECT b.nombre, m.tipo_movimiento, COUNT(*) AS total
-FROM movimiento_inv m
-JOIN bodegas b ON m.bodega_id = b.id
-GROUP BY b.nombre, m.tipo_movimiento;
 
--- Categorías con precio promedio alto
-SELECT c.nombre, AVG(p.precio_unitario) AS promedio
-FROM productos p
-JOIN categorias c ON p.categorias_id = c.id
-GROUP BY c.nombre
-HAVING AVG(p.precio_unitario) > 10000;
+-- Cantidad de ordenes atendidas por tecnico
+SELECT
+    t.full_name      AS technician,
+    COUNT(wo.id)     AS total_orders
+FROM technicians t
+LEFT JOIN work_orders wo ON wo.technician_id = t.id
+GROUP BY t.id, t.full_name
+ORDER BY total_orders DESC;
 
--- Productos con bajo stock
-SELECT nombre, stock
-FROM productos
-WHERE stock < 10;
+-- Historial de servicios realizados por ciudad
+SELECT
+    c.name           AS city,
+    COUNT(wo.id)     AS total_services
+FROM cities c
+JOIN branches b      ON b.city_id   = c.id
+JOIN work_orders wo  ON wo.branch_id = b.id
+GROUP BY c.id, c.name
+ORDER BY total_services DESC;
 
---  Proveedores sin compras
-SELECT pr.nombre
-FROM proveedores pr
-LEFT JOIN compras c ON pr.id = c.proveedor_id
-WHERE c.id IS NULL;
+-- Total de servicios realizados por tipo de servicio
+SELECT
+    st.name          AS service_type,
+    COUNT(wo.id)     AS total
+FROM service_types st
+LEFT JOIN work_orders wo ON wo.service_type_id = st.id
+GROUP BY st.id, st.name
+ORDER BY total DESC;
 
-/* =========================
-   VISTAS 
-========================= */
+-- Equipos con mayor cantidad de mantenimientos
+SELECT
+    e.name           AS equipment,
+    ec.name          AS category,
+    COUNT(wo.id)     AS total_services
+FROM equipment e
+JOIN equipment_categories ec ON ec.id = e.category_id
+LEFT JOIN work_orders wo      ON wo.equipment_id = e.id
+GROUP BY e.id, e.name, ec.name
+ORDER BY total_services DESC;
 
-CREATE VIEW vw_stock AS
-SELECT p.nombre, c.nombre AS categoria, p.stock
-FROM productos p
-JOIN categorias c ON p.categorias_id = c.id;
+-- Clientes con mayor numero de ordenes de servicio
+SELECT
+    cl.name          AS client,
+    COUNT(wo.id)     AS total_orders
+FROM clients cl
+LEFT JOIN work_orders wo ON wo.client_id = cl.id
+GROUP BY cl.id, cl.name
+ORDER BY total_orders DESC;
 
-CREATE VIEW vw_compras_proveedor AS
-SELECT pr.nombre, SUM(c.valor_total) AS total
-FROM proveedores pr
-LEFT JOIN compras c ON pr.id = c.proveedor_id
-GROUP BY pr.nombre;
+-- Cantidad de ordenes gestionadas por sede
+SELECT
+    b.name           AS branch,
+    c.name           AS city,
+    COUNT(wo.id)     AS total_orders
+FROM branches b
+JOIN cities c        ON c.id = b.city_id
+LEFT JOIN work_orders wo ON wo.branch_id = b.id
+GROUP BY b.id, b.name, c.name
+ORDER BY total_orders DESC;
 
-/* =========================
-   UPDATE / DELETE 
-========================= */
 
--- Actualizar proveedor
-UPDATE proveedores
-SET email = 'nuevo@mail.com'
-WHERE id = 1;
+CREATE OR REPLACE VIEW v_technician_workload AS
+SELECT
+    t.id                         AS technician_id,
+    t.full_name                  AS technician,
+    COUNT(wo.id)                 AS total_orders,
+    ROUND(SUM(wo.hours_worked), 2) AS total_hours,
+    ROUND(SUM(wo.cost), 2)       AS total_billed,
+    ROUND(AVG(wo.cost), 2)       AS avg_cost_per_order
+FROM technicians t
+LEFT JOIN work_orders wo ON wo.technician_id = t.id
+GROUP BY t.id, t.full_name;
 
--- Reducir stock
-UPDATE productos
-SET stock = stock - 5
-WHERE id = 1 AND stock >= 5;
+CREATE OR REPLACE VIEW v_branch_operations AS
+SELECT
+    b.id                         AS branch_id,
+    b.name                       AS branch,
+    ci.name                      AS city,
+    cl.name                      AS client,
+    COUNT(wo.id)                 AS total_orders,
+    ROUND(SUM(wo.cost), 2)       AS total_revenue,
+    MIN(wo.service_date)         AS first_service,
+    MAX(wo.service_date)         AS last_service
+FROM branches b
+JOIN cities   ci                 ON ci.id = b.city_id
+JOIN clients  cl                 ON cl.id = b.client_id
+LEFT JOIN work_orders wo         ON wo.branch_id = b.id
+GROUP BY b.id, b.name, ci.name, cl.name;
 
--- Eliminar movimientos antiguos
-DELETE FROM movimiento_inv
-WHERE tipo_movimiento = 'Salida'
-AND fecha_movimiento < '2024-01-01';
+DELIMITER $$
 
-/* =========================
-   TRANSACCIONES
-========================= */
+CREATE PROCEDURE sp_get_technician(IN p_id INT)
+BEGIN
+    IF p_id IS NULL THEN
+        SELECT
+            t.id,
+            t.full_name,
+            COUNT(wo.id)           AS total_orders,
+            ROUND(SUM(wo.cost), 2) AS total_billed
+        FROM technicians t
+        LEFT JOIN work_orders wo ON wo.technician_id = t.id
+        GROUP BY t.id, t.full_name
+        ORDER BY t.id;
+    ELSE
+        SELECT
+            t.id,
+            t.full_name,
+            COUNT(wo.id)           AS total_orders,
+            ROUND(SUM(wo.cost), 2) AS total_billed
+        FROM technicians t
+        LEFT JOIN work_orders wo ON wo.technician_id = t.id
+        WHERE t.id = p_id
+        GROUP BY t.id, t.full_name;
+    END IF;
+END$$
 
-START TRANSACTION;
-
-SAVEPOINT sp1;
-
-INSERT INTO proveedores(nombre, nit, telefono, email, ciudad_id)
-VALUES ('Proveedor Test', '999999', '3000000000', 'test@mail.com', 1);
-
-SAVEPOINT sp2;
-
-INSERT INTO productos(nombre, descripcion, precio_unitario, unidad_medida, stock, categorias_id)
-VALUES ('Producto Test', 'demo', 10000, 'Unidad', 0, 1);
-
--- COMMIT;  -- guardar todo
--- ROLLBACK TO sp2; -- deshacer solo producto
--- ROLLBACK; -- deshacer todo
-
-COMMIT;
-
---
-
-/* =========================
-   Conceptos
-=========================
-
-JOIN -> unir tablas
-WHERE -> filtrar filas
-GROUP BY -> agrupar
-HAVING -> filtrar grupos
-PK -> identificador único
-FK -> relación entre tablas
-*/
+DELIMITER ;
