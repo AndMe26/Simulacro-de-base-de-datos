@@ -1,0 +1,125 @@
+/* =========================
+   CRUD PRODUCTOS
+========================= */
+
+-- CREATE
+INSERT INTO productos(nombre, precio, stock, categoria_id)
+VALUES ('Martillo', 12000, 10, 1);
+
+-- READ (INNER JOIN)
+SELECT p.nombre, c.nombre AS categoria, p.stock
+FROM productos p
+INNER JOIN categorias c ON p.categoria_id = c.id;
+
+-- UPDATE
+UPDATE productos
+SET stock = stock + 5
+WHERE id = 1;
+
+-- DELETE
+DELETE FROM productos
+WHERE id = 1;
+
+/* =========================
+   LEFT JOIN 
+========================= */
+
+SELECT pr.nombre, c.id AS compra
+FROM proveedores pr
+LEFT JOIN compras c ON pr.id = c.proveedor_id;
+
+/* =========================
+   GROUP BY
+========================= */
+
+-- Total compras por proveedor
+SELECT pr.nombre, SUM(c.valor_total) AS total
+FROM proveedores pr
+JOIN compras c ON pr.id = c.proveedor_id
+GROUP BY pr.nombre;
+
+-- Cantidad de productos por categoría
+SELECT c.nombre, COUNT(p.id) AS total_productos
+FROM categorias c
+JOIN productos p ON c.id = p.categoria_id
+GROUP BY c.nombre;
+
+/* =========================
+   HAVING
+========================= */
+
+-- Proveedores con más de 1M en compras
+SELECT pr.nombre, SUM(c.valor_total) AS total
+FROM proveedores pr
+JOIN compras c ON pr.id = c.proveedor_id
+GROUP BY pr.nombre
+HAVING SUM(c.valor_total) > 1000000;
+
+/* =========================
+   SUBCONSULTAS
+========================= */
+
+-- Productos sobre el promedio
+SELECT nombre, precio
+FROM productos
+WHERE precio > (
+    SELECT AVG(precio) FROM productos
+);
+
+-- Proveedores con compras mayores al promedio
+SELECT pr.nombre
+FROM proveedores pr
+JOIN compras c ON pr.id = c.proveedor_id
+GROUP BY pr.nombre
+HAVING SUM(c.valor_total) > (
+    SELECT AVG(total)
+    FROM (
+        SELECT SUM(valor_total) AS total
+        FROM compras
+        GROUP BY proveedor_id
+    ) AS sub
+);
+
+/* =========================
+   VISTAS
+========================= */
+
+CREATE VIEW vw_productos AS
+SELECT p.nombre, c.nombre AS categoria, p.stock
+FROM productos p
+JOIN categorias c ON p.categoria_id = c.id;
+
+CREATE VIEW vw_compras AS
+SELECT pr.nombre, SUM(c.valor_total) AS total
+FROM proveedores pr
+LEFT JOIN compras c ON pr.id = c.proveedor_id
+GROUP BY pr.nombre;
+
+/* =========================
+   MOVIMIENTOS INVENTARIO
+========================= */
+
+-- Movimientos por bodega
+SELECT b.nombre, m.tipo, COUNT(*) AS total
+FROM movimiento_inv m
+JOIN bodegas b ON m.bodega_id = b.id
+GROUP BY b.nombre, m.tipo;
+
+-- Inventario total valorado
+SELECT b.nombre,
+SUM(m.cantidad * p.precio) AS valor_inventario
+FROM movimiento_inv m
+JOIN bodegas b ON m.bodega_id = b.id
+JOIN productos p ON m.producto_id = p.id
+GROUP BY b.nombre;
+
+/* =========================
+   CONSULTAS MIXTAS 
+========================= */
+
+-- Proveedores con ciudad y total compras
+SELECT pr.nombre, ci.nombre AS ciudad, SUM(c.valor_total) AS total
+FROM proveedores pr
+JOIN ciudades ci ON pr.ciudad_id = ci.id
+LEFT JOIN compras c ON pr.id = c.proveedor_id
+GROUP BY pr.nombre, ci.nombre;
